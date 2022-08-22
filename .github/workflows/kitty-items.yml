@@ -16,7 +16,7 @@ on:
 jobs:
   kitty-items:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     container: cypress/browsers:node16.14.2-slim-chrome103-ff102 #use arm64 arch on Apple M1 chips when running locally
     steps:
       - name: Checkout
