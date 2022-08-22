@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       KITTY_ITEMS_HASH:
-        description: "Commit hash to checkout, HEAD is default"
+        description: "kitty-items commit hash"
         type: string
       FLOW_CLI_HASH:
-        description: "Commit hash to checkout, HEAD is default"
+        description: "flow-cli commit hash"
         type: string
       DEV_WALLET_HASH:
-        description: "Commit hash to checkout, HEAD is default"
+        description: "fcl-dev-wallet commit hash"
         type: string
 
 jobs:
