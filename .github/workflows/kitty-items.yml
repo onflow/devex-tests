@@ -89,6 +89,8 @@ jobs:
       - name: Cypress run emulator
         uses: cypress-io/github-action@v4
         with:
+          working-directory: kitty-items
+          install: false
           start: npm run dev:emulator
           wait-on: http://localhost:3001
           spec: cypress/e2e/emulator.cy.js
