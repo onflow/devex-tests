@@ -87,27 +87,27 @@ jobs:
         run: ls && cd kitty-items && npm i 
 
       - name: Cypress run emulator
-      uses: cypress-io/github-action@v4
-      with:
-        start: npm run dev:emulator
-        wait-on: http://localhost:3001
-        spec: cypress/e2e/emulator.cy.js
-        record: true
-      env:
-        CYPRESS_RECORD_KEY: ${{secrets.CYPRESS_RECORD_KEY}}
-        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        uses: cypress-io/github-action@v4
+        with:
+          start: npm run dev:emulator
+          wait-on: http://localhost:3001
+          spec: cypress/e2e/emulator.cy.js
+          record: true
+        env:
+          CYPRESS_RECORD_KEY: ${{secrets.CYPRESS_RECORD_KEY}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
-    - uses: actions/upload-artifact@v3
-      if: failure()
-      with:
-        name: cypress-screenshots
-        path: cypress/screenshots
-    # Test run video was always captured, so this action uses "always()" condition
-    - uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: cypress-videos
-        path: cypress/videos
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+      # Test run video was always captured, so this action uses "always()" condition
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: cypress-videos
+          path: cypress/videos
 
   # scratch:
   #   runs-on: ubuntu-latest
