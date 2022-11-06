@@ -1,0 +1,136 @@
+name: Build Flow Emulator with temporary dependencies
+
+  # github.com/onflow/cadence v0.28.0
+	# github.com/onflow/flow-go v0.26.14-test-synchronization.0.20221012204608-ed91c80fee2b
+	# github.com/onflow/flow-go-sdk v0.29.0
+	# github.com/onflow/flow-go/crypto v0.24.4
+	# github.com/onflow/flow-nft/lib/go/contracts v0.0.0-20220727161549-d59b1e547ac4
+	# github.com/onflow/flow/protobuf/go/flow v0.3.1
+	# github.com/onflow/fusd/lib/go/contracts v0.0.0-20211021081023-ae9de8fb2c7e
+	# github.com/onflow/nft-storefront/lib/go/contracts v0.0.0-20220714155620-011db20fe754
+
+on:
+  workflow_dispatch:
+    inputs:
+      CADENCE_HASH:
+        description: "Cadence repo commit hash"
+        type: string
+      FLOW_GO_HASH:
+        description: "Flow Go repo commit hash"
+        type: string
+      FLOW_GO_SDK_HASH:
+        description: "Flow Go SDK repo commit hash"
+        type: string
+      FLOW_CLI_HASH:
+        description: "Flow CLI repo commit hash"
+        type: string
+
+jobs:
+  build-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # container: cypress/browsers:node16.14.2-slim-chrome103-ff102 #use arm64 arch on Apple M1 chips when running locally
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with: 
+          path: checkout
+      
+      - name: Get cadence repo sources
+        uses: actions/checkout@v3
+        with:
+          repository: onflow/cadence
+          path: cadence
+          ref: ${{ github.event.inputs.CADENCE_HASH }}
+
+      - name: Get flow-go repo sources
+        uses: actions/checkout@v3
+        with:
+          repository: onflow/flow-go
+          path: flow-go
+          ref: ${{ github.event.inputs.FLOW_GO_HASH }}
+
+      - name: Get flow-go-sdk repo sources
+        uses: actions/checkout@v3
+        with:
+          repository: onflow/flow-go-sdk
+          path: flow-go-sdk
+          ref: ${{ github.event.inputs.FLOW_GO_SDK_HASH }}
+
+      - name: Get Emulator sources
+        uses: actions/checkout@v3
+        with:
+          repository: onflow/flow-emulator
+          path: flow-emulator
+          ref: ${{ github.event.inputs.EMULATOR_HASH }}
+
+      - name: Get flow cli sources
+        uses: actions/checkout@v3
+        with:
+          repository: onflow/flow-cli
+          path: flow-cli
+          ref: ${{ github.event.inputs.FLOW_CLI_HASH }}
+
+      ###
+
+      - uses: actions/setup-go@v1
+        with:
+          go-version: '1.19'
+      
+      - name: Install build dependencies 
+        run: apt-get update -y && apt-get install build-essential zip cmake -y 
+
+      ###
+
+      - name: Replace imports with local sources in emulator project
+        run: | 
+          cd flow-emulator
+          go mod edit -replace github.com/onflow/cadence=../cadence
+          go mod edit -replace github.com/onflow/flow-go=../flow-go
+          go mod edit -replace github.com/onflow/flow-go-sdk=../flow-go-sdk
+
+      - name: Replace imports with local sources in flow-go project
+        run: | 
+          cd flow-go
+          go mod edit -replace github.com/onflow/cadence=../cadence
+
+      - name: Replace imports with local sources in flow-cli project
+        run: | 
+          cd flow-cli
+          go mod edit -replace github.com/onflow/flow-emulator=../flow-emulator
+
+      - name: Build flow-go
+        run: |
+          cd flow-go
+          make install-tools
+      # make generate
+
+
+      - name: Build emulator
+        run: |
+          cd flow-emulator
+          go build ./cmd/emulator
+
+      - name: Build flow-cli
+        run: cd flow-cli && make versioned-binaries
+
+      - name: Copy flow binary
+        run: cp flow-cli/cmd/flow/flow-x86_64-linux- /usr/local/bin/flow && ls /usr/local/bin/flow
+
+      - name: Get Flow Version
+        run: |
+          echo Flow version:
+          flow version
+
+      - name: Upload flow-cli artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: flow-cli
+          path: flow-cli/cmd/flow
+  
+      - name: Upload emulator artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: flow-emulator
+          path: flow-emulator/emulator
+  
