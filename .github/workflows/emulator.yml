@@ -69,7 +69,7 @@ jobs:
           go-version: '1.19'
       
       - name: Install build dependencies 
-        run: apt-get update -y && apt-get install build-essential zip cmake -y 
+        run: sudo apt-get update -y && apt-get install build-essential zip cmake -y 
 
       ###
 
@@ -114,6 +114,7 @@ jobs:
           flow version
 
       - name: Upload flow-cli artifacts
+        # if: ${{ env.ACTIONS_RUNTIME_TOKEN }}
         uses: actions/upload-artifact@v3
         with:
           name: flow-cli
