@@ -96,6 +96,7 @@ jobs:
         run: |
           cd flow-go
           make install-tools
+          go build -v --tags relic ./...
       # make generate
 
 
