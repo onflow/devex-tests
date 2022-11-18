@@ -12,6 +12,9 @@ on:
       FLOW_GO_SDK_HASH:
         description: "Flow Go SDK repo commit hash"
         type: string
+      FLOW_EMULATOR_HASH:
+        description: "Flow Emulator repo commit hash"
+        type: string
       FLOW_CLI_HASH:
         description: "Flow CLI repo commit hash"
         type: string
@@ -53,7 +56,7 @@ jobs:
         with:
           repository: onflow/flow-emulator
           path: flow-emulator
-          ref: ${{ github.event.inputs.EMULATOR_HASH }}
+          ref: ${{ github.event.inputs.FLOW_EMULATOR_HASH }}
 
       - name: Get flow cli sources
         uses: actions/checkout@v3
