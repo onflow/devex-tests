@@ -107,8 +107,6 @@ jobs:
           path: flow-cli
           ref: ${{ github.event.inputs.FLOW_CLI_HASH }}
 
-
-      - run: exit 1
       ###
 
       - uses: actions/setup-go@v1
