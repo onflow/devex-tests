@@ -1,7 +1,7 @@
 {
     "inputs": {
-      "CADENCE_HASH": "5b0b89d3414a6259d7a1d5255f76eb67301f099b",
-      "FLOW_GO_HASH": "cce040eaef81f44cfa4df22f73ea06aabb29dfe0",
+      "CADENCE_HASH": "",
+      "FLOW_GO_HASH": "",
       "FLOW_EMULATOR_HASH": "",
       "FLOW_GO_SDK_HASH": "",
       "EMULATOR_HASH": "",

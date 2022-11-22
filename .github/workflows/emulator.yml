@@ -25,24 +25,66 @@ jobs:
     timeout-minutes: 20
     # container: cypress/browsers:node16.14.2-slim-chrome103-ff102 #use arm64 arch on Apple M1 chips when running locally
     steps:
+      - name: Save current timestamp to env var
+        run: |
+            echo "TIMESTAMP=$(date)" >> $GITHUB_ENV
+
       - name: Checkout
         uses: actions/checkout@v3
         with: 
-          path: checkout
+          path: devex-tests
       
+      - name: Find Latest Tag for Cadence
+        if: github.event.inputs.CADENCE_HASH == ''
+        uses: oprypin/find-latest-tag@v1.1.1
+        with:
+          repository: onflow/cadence  # The repository to scan.
+          releases-only: false  
+        id: cadence  # The step ID to refer to later.
+      - run: |
+          echo "CADENCE_HASH=${{ steps.cadence.outputs.tag || github.event.inputs.CADENCE_HASH }}" >> $GITHUB_ENV
+      - run: |
+          echo "Cadence is at version ${{ env.CADENCE_HASH }}"
+
+      - name: Find Latest Tag for flow-go
+        if: github.event.inputs.FLOW_GO_HASH == ''
+        uses: oprypin/find-latest-tag@v1.1.1
+        with:
+          repository: onflow/flow-go  
+          releases-only: false  
+        id: flow-go  # The step ID to refer to later.
+      - run: |
+          echo "FLOW_GO_HASH=${{ steps.flow-go.outputs.tag || github.event.inputs.FLOW_GO_HASH }}" >> $GITHUB_ENV
+      - run: |
+          echo "flow-go is at version ${{ env.FLOW_GO_HASH }}"
+
+      - name: Find Latest Tag for flow-emulator
+        if: github.event.inputs.FLOW_EMULATOR_HASH == ''
+        uses: oprypin/find-latest-tag@v1.1.1
+        with:
+          repository: onflow/flow-emulator  # The repository to scan.
+          releases-only: false  
+        id: emulator  # The step ID to refer to later.
+      - run: |
+          echo "FLOW_EMULATOR_HASH=${{ steps.emulator.outputs.tag || github.event.inputs.FLOW_EMULATOR_HASH }}" >> $GITHUB_ENV
+      - run: |
+          echo "flow-emulator is at version ${{ env.FLOW_EMULATOR_HASH }}"
+
+      #########
+
       - name: Get cadence repo sources
         uses: actions/checkout@v3
         with:
           repository: onflow/cadence
           path: cadence
-          ref: ${{ github.event.inputs.CADENCE_HASH }}
+          ref: ${{ env.CADENCE_HASH }}
 
       - name: Get flow-go repo sources
         uses: actions/checkout@v3
         with:
           repository: onflow/flow-go
           path: flow-go
-          ref: ${{ github.event.inputs.FLOW_GO_HASH }}
+          ref: ${{ env.FLOW_GO_HASH }}
 
       - name: Get flow-go-sdk repo sources
         uses: actions/checkout@v3
@@ -56,7 +98,7 @@ jobs:
         with:
           repository: onflow/flow-emulator
           path: flow-emulator
-          ref: ${{ github.event.inputs.FLOW_EMULATOR_HASH }}
+          ref: ${{ env.FLOW_EMULATOR_HASH }}
 
       - name: Get flow cli sources
         uses: actions/checkout@v3
@@ -65,6 +107,8 @@ jobs:
           path: flow-cli
           ref: ${{ github.event.inputs.FLOW_CLI_HASH }}
 
+
+      - run: exit 1
       ###
 
       - uses: actions/setup-go@v1
@@ -111,7 +155,10 @@ jobs:
           go build ./cmd/emulator
 
       - name: Build flow-cli
-        run: cd flow-cli && make versioned-binaries
+        run: |
+          cd flow-cli
+          go mod tidy
+          make versioned-binaries
 
       - name: Copy flow binary
         run: cp flow-cli/cmd/flow/flow-x86_64-linux- /usr/local/bin/flow && ls /usr/local/bin/flow
@@ -133,4 +180,34 @@ jobs:
         with:
           name: flow-emulator
           path: flow-emulator/emulator
+
+      # - if: ${{ always() }}
+      #   run: |
+      #     echo "FLOW_CLI_HASH=${{ github.event.inputs.FLOW_CLI_HASH || 'master' }}" >> $GITHUB_ENV
+
+      - name: Write result to CSV file
+        if: ${{ always() }}
+        uses: gr2m/write-csv-file-action@v1.x
+        with:
+          path: devex-tests/results.csv
+          columns: timestamp,result,cadence version,flow-go version,emulator version,flow-cli version
+          "timestamp": ${{ env.TIMESTAMP }} 
+          "result": ${{ job.status }}
+          "cadence version": ${{ env.CADENCE_HASH }}
+          "flow-go version": ${{ env.FLOW_GO_HASH }}
+          "emulator version": ${{ env.FLOW_EMULATOR_HASH }}
+          "flow-cli version": ${{ github.event.inputs.FLOW_CLI_HASH || 'master' }}  
+
+      - name: Push updated results.csv file back to main branch
+        if: ${{ always() }}
+        run: | 
+          cd devex-tests
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add results.csv
+          git commit -m "results.csv updated"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git HEAD
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   
