@@ -1,4 +1,4 @@
-name: Build CLI with latest emulator code
+name: flow-cli/flow-emulator 
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
@@ -10,6 +10,14 @@ on:
   schedule:
       # Every day at 8am
       - cron: "0 8 * * *"
+  workflow_dispatch:
+      inputs:
+        FLOW_CLI_HASH:
+          description: "flow-cli repo commit hash"
+          type: string
+        FLOW_EMULATOR_HASH:
+          description: "flow-emulator repo commit hash"
+          type: string
 
 jobs:
   flow-cli-main:
@@ -24,12 +32,14 @@ jobs:
         with:
           repository: onflow/flow-emulator
           path: flow-emulator
+          ref: ${{ github.event.inputs.FLOW_EMULATOR_HASH }}
 
       - name: Get flow cli sources
         uses: actions/checkout@v3
         with:
           repository: onflow/flow-cli
           path: flow-cli
+          ref: ${{ github.event.inputs.FLOW_CLI_HASH }}
 
       ###
 
@@ -84,16 +94,30 @@ jobs:
 
       - name: Send slack notification
         if: ${{ failure() }}
-        uses: rtCamp/action-slack-notify@v2 
-        env:
-          SLACK_CHANNEL: dx-tools-pod-notifications
-          SLACK_COLOR: ${{ job.status }} # or a specific color like 'good' or '#ff00ff'
-          # SLACK_ICON: https://github.com/rtCamp.png?size=48
-          SLACK_MESSAGE: 'flow-cli build failed with flow-emulator master'
-          SLACK_TITLE: Build failure
-          SLACK_USERNAME: devex-tests
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}        
-
+        run: >
+          curl -X POST -H 'Content-type: application/json' --data 
+          '
+          {
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "flow-cli build failed"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "https://github.com/onflow/devex-tests/actions/runs/${{ github.run_id }}"
+                }
+              }
+            ]
+          }
+          '  
+          ${{ secrets.SLACK_WEBHOOK }}
+          
 
       # - name: Create an issue for flow-cli
       #   if: ${{ failure() }}
