@@ -1,6 +1,13 @@
-name: Build the emulator with custom Cadence dependency
+name: cadence/flow-emulator 
 
 on:
+  push:
+    branches: [ main ]
+  # pull_request:
+  #   branches: [ master ]
+  schedule:
+      # Every day at 8am
+      - cron: "0 8 * * *"
   workflow_dispatch:
     inputs:
       CADENCE_HASH:
@@ -11,9 +18,8 @@ on:
         type: string
 
 jobs:
-  build-emulator:
+  cadence-emulator:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - name: Save current timestamp to env var
         run: |
@@ -64,40 +70,35 @@ jobs:
           go mod tidy
           go build ./cmd/emulator
 
-  
       - name: Upload emulator artifacts
         uses: actions/upload-artifact@v3
         with:
           name: flow-emulator
           path: flow-emulator/emulator
 
-      # - if: ${{ always() }}
-      #   run: |
-      #     echo "FLOW_CLI_HASH=${{ github.event.inputs.FLOW_CLI_HASH || 'master' }}" >> $GITHUB_ENV
-
-      # - name: Write result to CSV file
-      #   if: ${{ always() }}
-      #   uses: gr2m/write-csv-file-action@v1.x
-      #   with:
-      #     path: devex-tests/results.csv
-      #     columns: timestamp,result,cadence version,flow-go version,emulator version,flow-cli version
-      #     "timestamp": ${{ env.TIMESTAMP }} 
-      #     "result": ${{ job.status }}
-      #     "cadence version": ${{ env.CADENCE_HASH }}
-      #     "flow-go version": ${{ env.FLOW_GO_HASH }}
-      #     "emulator version": ${{ env.FLOW_EMULATOR_HASH }}
-      #     "flow-cli version": ${{ github.event.inputs.FLOW_CLI_HASH || 'master' }}  
-
-      # - name: Push updated results.csv file back to main branch
-      #   if: ${{ always() }}
-      #   run: | 
-      #     cd devex-tests
-      #     git config --local user.email "action@github.com"
-      #     git config --local user.name "GitHub Action"
-      #     git add results.csv
-      #     git commit -m "results.csv updated"
-      #     git push https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git HEAD
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      - name: Send slack notification
+        if: ${{ failure() }}
+        run: >
+          curl -X POST -H 'Content-type: application/json' --data 
+          '
+          {
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "flow-emulator build failed"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "https://github.com/onflow/devex-tests/actions/runs/${{ github.run_id }}"
+                }
+              }
+            ]
+          }
+          '  
+          ${{ secrets.SLACK_WEBHOOK }}
   
