@@ -3,13 +3,6 @@ name: flow-cli/flow-emulator
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
 on:
-  push:
-    branches: [ main ]
-  # pull_request:
-  #   branches: [ master ]
-  schedule:
-      # Every day at 8am
-      - cron: "0 8 * * *"
   workflow_dispatch:
       inputs:
         FLOW_CLI_HASH:

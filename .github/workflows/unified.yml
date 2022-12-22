@@ -1,10 +1,6 @@
 name: unfified
 
 on:
-  push:
-    branches: [ main ]
-  # pull_request:
-  #   branches: [ master ]
   schedule:
       # Every day at 8am
       - cron: "0 8 * * *"
@@ -129,7 +125,7 @@ jobs:
           {
             "ref": "huyndo/integration-test",
             "inputs": {
-                "CLI_BUILD_RUN_ID": ${{ github.run_id }}
+                "CLI_BUILD_RUN_ID": "${{ github.run_id }}"
             }
           }
           '

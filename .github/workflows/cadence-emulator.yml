@@ -1,13 +1,6 @@
 name: cadence/flow-emulator 
 
 on:
-  push:
-    branches: [ main ]
-  # pull_request:
-  #   branches: [ master ]
-  schedule:
-      # Every day at 8am
-      - cron: "0 8 * * *"
   workflow_dispatch:
     inputs:
       CADENCE_HASH:
