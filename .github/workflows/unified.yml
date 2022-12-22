@@ -1,0 +1,175 @@
+name: cadence/flow-emulator 
+
+on:
+  push:
+    branches: [ main ]
+  # pull_request:
+  #   branches: [ master ]
+  schedule:
+      # Every day at 8am
+      - cron: "0 8 * * *"
+  workflow_dispatch:
+    inputs:
+      CADENCE_HASH:
+        description: "Cadence repo commit hash"
+        type: string
+      FLOW_EMULATOR_HASH:
+        description: "Flow Emulator repo commit hash"
+        type: string
+      FLOW_CLI_HASH:
+        description: "flow-cli repo commit hash"
+        type: string
+
+jobs:
+  cadence-emulator-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Save current timestamp to env var
+        run: |
+            echo "TIMESTAMP=$(date)" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with: 
+          path: devex-tests
+
+      #########
+
+      - name: Get cadence repo sources
+        uses: actions/checkout@v3
+        with:
+          repository: onflow/cadence
+          path: cadence
+          ref: ${{ github.event.inputs.CADENCE_HASH }}
+
+      - name: Get Emulator sources
+        uses: actions/checkout@v3
+        with:
+          repository: onflow/flow-emulator
+          path: flow-emulator
+          ref: ${{ github.event.inputs.FLOW_EMULATOR_HASH }}
+
+      - name: Get flow cli sources
+        uses: actions/checkout@v3
+        with:
+          repository: onflow/flow-cli
+          path: flow-cli
+          ref: ${{ github.event.inputs.FLOW_CLI_HASH }}
+
+      ###
+
+      - uses: actions/setup-go@v1
+        with:
+          go-version: '1.19'
+      
+      - name: Install build dependencies 
+        run: |
+          sudo apt-get update -y 
+          sudo apt-get install build-essential zip cmake jq -y 
+
+      ###
+
+      - name: Replace imports with local sources in emulator project
+        run: | 
+          cd flow-emulator
+          go mod edit -replace github.com/onflow/cadence=../cadence
+
+      - name: Build emulator
+        run: |
+          cd flow-emulator
+          go mod tidy
+          go build ./cmd/emulator
+
+      - name: Upload emulator artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: flow-emulator
+          path: flow-emulator/emulator
+
+      - name: Replace imports with local sources in flow-cli project
+        run: | 
+          cd flow-cli
+          go mod edit -replace github.com/onflow/flow-emulator=../flow-emulator
+
+      - name: Build flow-cli
+        run: |
+          cd flow-cli
+          go mod tidy
+          make versioned-binaries
+
+      - name: Copy flow binary
+        run: |
+          cp flow-cli/cmd/flow/flow-x86_64-linux- /usr/local/bin/flow 
+          ls /usr/local/bin/flow
+
+      - name: Get Flow Version
+        run: |
+          echo Flow version:
+          flow version
+
+      - name: Upload flow-cli artifacts
+        # if: ${{ env.ACTIONS_RUNTIME_TOKEN }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: flow-cli
+          path: flow-cli/cmd/flow
+
+      #######
+
+      - name: Find artifact id for the cli
+        run: >
+          ARTIFACT_ID=$(
+          curl 
+          -H "Accept: application/vnd.github+json" 
+          -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}"
+          -H "X-GitHub-Api-Version: 2022-11-28"
+          https://api.github.com/repos/onflow/devex-tests/actions/runs/${{ github.run_id }}/artifacts
+          | jq ".artifacts[0].id")
+          && echo ARTIFACT_ID=${ARTIFACT_ID}
+          && echo "ARTIFACT_ID=${ARTIFACT_ID}" >> $GITHUB_ENV
+      # ${{ github.event.inputs.CLI_URL }}
+      
+      - run: >
+          curl https://api.github.com/repos/onflow/fcl-js/actions/workflows -H "Authorization: token ${{ secrets.PAT }}"
+      - name: Dispatch fcl-js test
+        run: >
+          curl 
+          -X POST 
+          -H "Accept: application/vnd.github+json" 
+          -H "Authorization: token ${{ secrets.PAT }}" 
+          https://api.github.com/repos/onflow/fcl-js/actions/workflows/6548222/dispatches 
+          -d '
+          {
+            "ref": "huyndo/integration-test",
+            "inputs": {
+                "CLI_URL": "https://api.github.com/repos/onflow/devex-tests/actions/artifacts/${{ env.ARTIFACT_ID }}/zip"
+            }
+          }
+          '
+
+      - name: Send slack notification
+        if: ${{ failure() }}
+        run: >
+          curl -X POST -H 'Content-type: application/json' --data 
+          '
+          {
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "cadence-emulator-cli daily build failed"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "https://github.com/onflow/devex-tests/actions/runs/${{ github.run_id }}"
+                }
+              }
+            ]
+          }
+          '  
+          ${{ secrets.SLACK_WEBHOOK }}
+  
